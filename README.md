@@ -533,7 +533,7 @@ All KPIs are defined as explicit measures (not implicit) collected in a single `
 **Mahmoud Hamdi**
 Data Analyst & Business Intelligence Developer
 
-[!📩 Connect via [LinkedIn](https://www.linkedin.com/in/mahmoud-hamdi-analyst) · [Email](mailto:mahmoudhamdiwm@gmail.com)
+ [LinkedIn](https://www.linkedin.com/in/mahmoud-hamdi-analyst) · [Email](mailto:mahmoudhamdiwm@gmail.com)
 ---
 
 ## 📄 License
