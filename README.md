@@ -19,13 +19,13 @@
 
 ## 📌 Project Overview
 
-This project simulates the complete data pipeline and analytical layer for **Agamy Star Mall**, a multi-tenant commercial shopping center. The goal was to build a realistic, fully integrated BI system from scratch — including database design, realistic data population, SQL-level analysis, Power BI modeling, and an executive-grade reporting layer.
+This project simulates the complete data pipeline and analytical layer for **Agamy Star Mall**, a multi-tenant commercial shopping center. The goal was to build a realistic, fully integrated BI system from scratch — including database design, synthetic data population, SQL-level analysis, Power BI modeling, and an executive-grade reporting layer.
 
 The project was structured around a real business question:
 
 > *"Is the mall operating at its full financial potential — and if not, where exactly is the value leaking?"*
 
-The answer, as revealed by the data, is that **the mall is commercially strong but financially underperforming**, with a persistent collection gap of ~25% that has compounded across four consecutive fiscal years (2022–2026).
+The answer, as revealed by the data, is that **the mall is commercially strong but financially underperforming**, with a persistent collection gap of ~25% that has compounded across four consecutive fiscal years (2022–2025).
 
 ---
 
@@ -84,7 +84,7 @@ The design process followed a structured engineering approach:
 
 ### Entity Relationship Diagram (ERD)
 
-> *(SQL Server — ssms diagram view)*
+> *(SQL Server — SSMS diagram view)*
 
 ![ERD Diagram](./screenshots/erd_diagram.png)
 
@@ -106,7 +106,7 @@ The database contains **15 tables** organized into two layers:
 | `ViolationRules` | Static fine/penalty rule catalog | — |
 | `Dim_Date` | Pre-generated calendar dimension | `UNIQUE` FullDate |
 
-#### Child Tables (Transactional/Fact Entities)
+#### Child Tables (Transactional / Fact Entities)
 
 | Table | Description | Key Relationships |
 |-------|-------------|-------------------|
@@ -127,14 +127,14 @@ The database contains **15 tables** organized into two layers:
 All foreign keys are configured with deliberate `ON DELETE` / `ON UPDATE` behavior:
 
 ```sql
--- Example: Cascade shop number updates to contracts
-CONSTRAINT FK_Shop_ID FOREIGN KEY (Shop_ID) 
+-- Cascade shop number updates to contracts
+CONSTRAINT FK_Shop_ID FOREIGN KEY (Shop_ID)
     REFERENCES Shops(Shop_ID)
     ON DELETE NO ACTION
     ON UPDATE CASCADE
 
--- Example: Prevent orphan collections if invoice is deleted
-CONSTRAINT FK_Collections_Invoices FOREIGN KEY (invoice_id) 
+-- Prevent orphan collections if invoice is deleted
+CONSTRAINT FK_Collections_Invoices FOREIGN KEY (invoice_id)
     REFERENCES Invoices(Invoice_ID)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION
@@ -164,11 +164,11 @@ Business Question → Why It Matters → Key Outputs → SQL Logic → Reusable 
 Computes the gap between total billed invoices and actual cash collected — the single most important KPI in the system.
 
 ```sql
-SELECT 
-    SUM(Total_Amount)                                                       AS Expected_Revenue,
-    (SELECT SUM(Amount) FROM Shop_Collections)                              AS Actual_Collection,
-    SUM(Total_Amount) - (SELECT SUM(Amount) FROM Shop_Collections)          AS Due_Balance
-FROM Invoices;
+SELECT
+    (SELECT SUM(Total_Amount) FROM Invoices)                                    AS Expected_Revenue,
+    (SELECT SUM(Amount) FROM Shop_Collections)                                  AS Actual_Collection,
+    (SELECT SUM(Total_Amount) FROM Invoices)
+        - (SELECT SUM(Amount) FROM Shop_Collections)                            AS Due_Balance;
 ```
 
 ---
@@ -177,6 +177,17 @@ FROM Invoices;
 > *"Where are costs increasing and why?"*
 
 Segments expenses by category (maintenance, utilities, payroll) across months — enabling cost spike detection.
+
+```sql
+SELECT
+    YEAR(expense_date)  AS Expense_Year,
+    MONTH(expense_date) AS Expense_Month,
+    SUM(CASE WHEN Expense_category = N'صيانة وإصلاح'  THEN amount ELSE 0 END) AS Maintenance_Expenses,
+    SUM(CASE WHEN Expense_category = N'مرافق عامة'    THEN amount ELSE 0 END) AS Utilities_Expenses,
+    SUM(CASE WHEN Expense_category = N'رواتب وتشغيل'  THEN amount ELSE 0 END) AS Operational_Expenses
+FROM Expenses
+GROUP BY YEAR(expense_date), MONTH(expense_date);
+```
 
 ---
 
@@ -187,15 +198,18 @@ Joins `Passages → Shops → Contracts` to compute revenue per zone, active sho
 
 ```sql
 SELECT
-    passages_name, Peak_Percentage,
-    SUM(C.Rent_Amount)          AS Total_Revenue,
-    COUNT(S.Shop_ID)            AS Active_Shops,
-    CAST(SUM(C.Rent_Amount) / SUM(S.area_size) AS DECIMAL(10,2)) AS AvgPricePerSQM
+    passages_name                                                                   AS Passage_Name,
+    Peak_Percentage,
+    SUM(C.Rent_Amount)                                                              AS Total_Revenue,
+    COUNT(S.Shop_ID)                                                                AS Active_Shops,
+    CAST(SUM(C.Rent_Amount) / SUM(S.area_size) AS DECIMAL(10,2))                   AS AvgPricePerSQM
 FROM Passages P
-INNER JOIN Shops S ON P.Passages_ID = S.Passages_ID
-INNER JOIN Contracts C ON S.Shop_ID = C.Shop_ID
-WHERE C.End_Date >= GETDATE() AND Contract_Status = N'نشط'
-GROUP BY passages_name, Peak_Percentage;
+INNER JOIN Shops     S ON P.Passages_ID = S.Passages_ID
+INNER JOIN Contracts C ON S.Shop_ID     = C.Shop_ID
+WHERE C.End_Date >= GETDATE()
+  AND Contract_Status = N'نشط'
+GROUP BY passages_name, Peak_Percentage
+ORDER BY Peak_Percentage DESC;
 ```
 
 ---
@@ -205,6 +219,24 @@ GROUP BY passages_name, Peak_Percentage;
 
 Counts violations per tenant during their contract window and aggregates fine amounts — sorted by risk severity.
 
+```sql
+SELECT
+    T.Brand_Name,
+    S.Shop_num,
+    C.Contract_Status,
+    COUNT(V.shop_id)    AS total_Violation,
+    SUM(VR.fine_amount) AS fine_amount,
+    C.End_Date
+FROM tenants T
+INNER JOIN Contracts      C  ON T.tenant_ID = C.tenant_ID
+INNER JOIN Shops          S  ON C.Shop_ID   = S.Shop_ID
+LEFT  JOIN ShopViolations V  ON S.Shop_ID   = V.shop_id
+                             AND V.Violation_Date BETWEEN C.Start_Date AND C.End_Date
+LEFT  JOIN ViolationRules VR ON V.rule_id   = VR.rule_id
+GROUP BY T.Brand_Name, S.Shop_num, C.Contract_Status, C.End_Date
+ORDER BY total_Violation DESC;
+```
+
 ---
 
 #### 5. Overdue Invoice Seasonality
@@ -212,27 +244,52 @@ Counts violations per tenant during their contract window and aggregates fine am
 
 Groups unpaid invoices by month to detect seasonal collection pressure.
 
+```sql
+SELECT
+    MONTH(Invoice_Date) AS Invoice_Month_Number,
+    COUNT(Invoice_Status) AS Overdue_invoices
+FROM Invoices
+WHERE Invoice_Status = N'غير مدفوعة'
+GROUP BY MONTH(Invoice_Date);
+```
+
 ---
 
 #### 6. Employee Performance Summary
 > *"How does each employee perform across evaluations, violations captured, and disciplinary actions?"*
 
-Uses **three CTEs** to combine: evaluation scores + captured violations + financial sanctions into a single ranked view.
+Uses **three CTEs** to combine evaluation scores + captured violations + financial sanctions into a single ranked view.
 
 ```sql
 WITH Evaluation_CTE AS (
-    SELECT employee_id,
-           CAST(AVG((attendance_score + performance_score) / 2.0) AS DECIMAL(10,2)) AS Avg_Score
-    FROM EmployeeEvaluations GROUP BY employee_id
+    SELECT
+        employee_id,
+        CAST(AVG((attendance_score + performance_score) / 2.0) AS DECIMAL(10,2)) AS Avg_Score
+    FROM EmployeeEvaluations
+    GROUP BY employee_id
 ),
-Sanctions_CTE AS (...),
-ShopViolations_CTE AS (...)
-SELECT E.Employee_Name, E.Job_Title, EC.Avg_Score,
-       ISNULL(S.Count_Violation, 0) AS Captured_Violations,
-       ISNULL(SC.Sanctions_Count, 0) AS Sanctions_Count
+Sanctions_CTE AS (
+    SELECT employee_id, action_type, COUNT(action_type) AS Sanctions_Count
+    FROM EmployeeSanctions
+    WHERE action_type = N'خصم مالي'
+    GROUP BY employee_id, action_type
+),
+ShopViolations_CTE AS (
+    SELECT employee_id, COUNT(violation_id) AS Count_Violation
+    FROM ShopViolations
+    GROUP BY employee_id
+)
+SELECT
+    E.Employee_ID,
+    E.Employee_Name,
+    E.Job_Title,
+    EC.Avg_Score,
+    ISNULL(S.Count_Violation,  0) AS Captured_Violations,
+    ISNULL(SC.Sanctions_Count, 0) AS Sanctions_Count
 FROM Employees E
-LEFT JOIN Evaluation_CTE EC ON E.Employee_ID = EC.employee_id
-...
+LEFT JOIN Evaluation_CTE     EC ON E.Employee_ID = EC.employee_id
+LEFT JOIN Sanctions_CTE      SC ON E.Employee_ID = SC.employee_id
+LEFT JOIN ShopViolations_CTE S  ON E.Employee_ID = S.employee_id;
 ```
 
 ---
@@ -242,11 +299,21 @@ LEFT JOIN Evaluation_CTE EC ON E.Employee_ID = EC.employee_id
 
 Groups assets by name and condition to support maintenance planning.
 
+```sql
+SELECT
+    Asset_Name      AS Asset_Name,
+    Asset_Condition AS Asset_Condition,
+    COUNT(Asset_Id) AS Asset_Count
+FROM Assets
+GROUP BY Asset_Name, Asset_Condition
+ORDER BY Asset_Condition DESC;
+```
+
 ---
 
 ### Reusable Views
 
-All 7 analysis modules are also persisted as SQL `VIEW` objects for direct consumption in Power BI:
+All 7 analysis modules are persisted as SQL `VIEW` objects for direct consumption in Power BI:
 
 | View Name | Purpose |
 |-----------|---------|
@@ -264,10 +331,35 @@ All 7 analysis modules are also persisted as SQL `VIEW` objects for direct consu
 
 ### Schema Design: Galaxy Schema
 
-The Power BI model was designed as a **Galaxy Schema** (also called a multi-fact star schema). This was a deliberate architectural choice — the business data spans multiple independent fact domains that cannot be merged into a single fact table without loss of grain or semantic accuracy.
+The Power BI model was designed as a **Galaxy Schema** (multi-fact star schema). This was not a default choice — it was the correct architectural response to the nature of the business domain.
 
 ![Power BI Data Model](./screenshots/powerbi_model.png)
-<!-- Replace with: screenshots/powerbi_model.png -->
+
+---
+
+### Why Galaxy Schema? A Justified Engineering Decision
+
+When analyzing the mall's operations, 7 independent business processes emerged — each with its own grain, lifecycle, and analytical purpose:
+
+- `Fact_Invoices` — one row per invoice issued against a contract
+- `Fact_Shop_Collections` — one row per cash collection event
+- `Fact_Contracts` — one row per signed lease agreement
+- `Fact_Expenses` — one row per operational expenditure
+- `Fact_ShopViolations` — one row per violation record
+- `Fact_EmployeeEvaluations` — one row per monthly evaluation
+- `Fact_EmployeeSanctions` — one row per sanction or bonus action
+
+All 7 share the same set of dimensions: `Dim_Shops`, `Dim_Tenants`, `Dim_Employees`, `Dim_Passages`, `Dim_Calendar`.
+
+**Why not Star Schema?**
+A single star schema would require merging all fact tables into one — which would destroy grain integrity. Aggregating invoices alongside evaluations produces meaningless fan-out and inflated measures. Each business process operates at a different grain and must remain isolated.
+
+**Why not Snowflake Schema?**
+Snowflake addresses dimension normalization, not the multi-process problem. The challenge here is not redundancy inside a dimension — it is the existence of multiple independent fact domains that happen to share the same dimensional keys. Snowflake does not solve this.
+
+**Galaxy Schema is the natural answer** when multiple business processes are independent, each has a distinct grain, and all share a common dimensional vocabulary. This preserves semantic accuracy, enables cross-domain analysis through shared keys, and keeps each fact table self-contained and maintainable.
+
+> Start with the business processes. Then choose the schema. Not the reverse.
 
 ---
 
@@ -300,42 +392,44 @@ The Power BI model was designed as a **Galaxy Schema** (also called a multi-fact
 
 ### DAX Measures
 
-All KPIs are calculated as explicit DAX measures in an isolated `All_Measures` table:
+All KPIs are calculated as explicit DAX measures isolated in a dedicated `All_Measures` table:
 
 ```dax
--- Core Financial Measures
-Total Due          = SUM('Fact_Invoices'[Total_Amount])
-Total Collections  = SUM('Fact_Shop_Collections'[amount])
-Net Outstanding    = [Total Due] - [Total Collections]
-Net Profit         = [Total Collections] - [Total Expenses]
-Total Expenses     = SUM(Fact_Expenses[amount])
+-- ── Core Financial Measures ──────────────────────────────────────────────────
+Total Due         = SUM('Fact_Invoices'[Total_Amount])
+Total Collections = SUM('Fact_Shop_Collections'[amount])
+Net Outstanding   = [Total Due] - [Total Collections]
+Net Profit        = [Total Collections] - [Total Expenses]
+Total Expenses    = SUM(Fact_Expenses[amount])
 
--- Collection & Arrears Rates
-Collection Rate %  = DIVIDE([Total Collections], [Total Due], 0)
-Arrears Rate %     = 1 - [Collection Rate %]
+-- ── Collection & Arrears Rates ───────────────────────────────────────────────
+Collection Rate % = DIVIDE([Total Collections], [Total Due], 0)
+Arrears Rate %    = 1 - [Collection Rate %]
 
--- Violation Count (with bidirectional cross-filter)
-count violations = 
+-- ── Violation Count (bidirectional cross-filter) ─────────────────────────────
+count violations =
 CALCULATE(
     COUNT('Fact_ShopViolations'[violation_id]),
     CROSSFILTER('Dim_Shops'[Shop_ID], 'Fact_Contracts'[shop_id], Both)
 )
 
--- HR Performance Measures
-attendance_score % = 
+-- ── HR Performance Measures ──────────────────────────────────────────────────
+attendance_score % =
 DIVIDE(
     SUM('Fact_EmployeeEvaluations'[attendance_score]),
-    COUNT('Fact_EmployeeEvaluations'[attendance_score]) * 5, 0
+    COUNT('Fact_EmployeeEvaluations'[attendance_score]) * 5,
+    0
 )
 
-performance_score % = 
+performance_score % =
 DIVIDE(
     SUM('Fact_EmployeeEvaluations'[performance_score]),
-    COUNT('Fact_EmployeeEvaluations'[performance_score]) * 5, 0
+    COUNT('Fact_EmployeeEvaluations'[performance_score]) * 5,
+    0
 )
 
--- Calendar Dimension (calculated table)
-Dim_Calendar = 
+-- ── Calendar Dimension (calculated table) ────────────────────────────────────
+Dim_Calendar =
 ADDCOLUMNS(
     CALENDAR(DATE(2022, 1, 1), DATE(2030, 12, 31)),
     "Year",         YEAR([Date]),
@@ -349,7 +443,7 @@ ADDCOLUMNS(
 
 ## 📈 Dashboard Pages
 
-The report is structured across **two pages**, each designed for a distinct audience and decision layer.
+The report spans **two pages**, each targeting a distinct audience and decision layer.
 
 ---
 
@@ -367,9 +461,9 @@ The report is structured across **two pages**, each designed for a distinct audi
 
 | Visual | Insight Delivered |
 |--------|------------------|
-| **5 Top KPI Cards** | Total Receivables · Actual Collections · Outstanding · Net Profit · Total Expenses |
+| **5 KPI Cards** | Total Receivables · Actual Collections · Outstanding · Net Profit · Total Expenses |
 | **Collection Efficiency Gauge** | 74.73% vs industry benchmark (~88–92%) |
-| **Occupancy Donut** | 26 rented / 3 available / 1 maintenance |
+| **Occupancy Donut** | 26 rented / 3 available / 1 under maintenance |
 | **Zone Performance Bar Chart** | Receivables vs collected by zone, overlaid with peak footfall % |
 | **Annual Trend Line** | 4-year receivables vs collections gap (2022–2025) |
 | **Tenant Arrears Table** | Ranked by outstanding balance with violation count and contract end date |
@@ -387,7 +481,7 @@ The report is structured across **two pages**, each designed for a distinct audi
 
 | Visual | Insight Delivered |
 |--------|------------------|
-| **3 Top KPI Cards** | Total Staff (22) · Bonuses (1.55K) · Penalties (1.70K) |
+| **3 KPI Cards** | Total Staff (22) · Bonuses (1.55K EGP) · Penalties (1.70K EGP) |
 | **Attendance Rate Gauge** | 83.53% compliance rate |
 | **Work Quality Gauge** | 81.70% performance score |
 | **Department Donut** | Security (8) · General Services (6) · Maintenance (4) · Admin (4) |
@@ -401,7 +495,7 @@ The report is structured across **two pages**, each designed for a distinct audi
 
 ### 1. The Collection Gap is Structural, Not Seasonal
 
-The 25% collection shortfall persists across all fiscal years (2022–2026) with no recovery trend:
+The 25% collection shortfall persists across all fiscal years (2022–2025) with no recovery trend:
 
 | Year | Receivables | Collected | Gap |
 |------|-------------|-----------|-----|
@@ -409,7 +503,7 @@ The 25% collection shortfall persists across all fiscal years (2022–2026) with
 | 2023 | EGP 9.0M | EGP 6.4M | **2.6M** ← worst full year |
 | 2024 | EGP 8.5M | EGP 6.7M | **1.8M** |
 | 2025 | EGP 8.7M | EGP 6.2M | **2.5M** |
-| 2026 | EGP 2.2M* | EGP 2.8M* | *(YTD — partial year)* |
+| 2026 | YTD* | YTD* | *(partial year)* |
 
 > \* 2026 figures are year-to-date and should not be read in isolation. The structural gap is confirmed by the 2022–2025 full-year pattern.
 
@@ -426,7 +520,7 @@ The 25% collection shortfall persists across all fiscal years (2022–2026) with
 | West Passage | 45% | 3.7M | 2.6M | **1.1M** |
 | Exit Zone | 45% | 2.9M | 2.9M | **0.0M** ✓ |
 
-> High traffic does not automatically drive collections — the link is broken at contract/follow-up governance level.
+> High traffic does not automatically drive collections — the link is broken at the contract follow-up and governance level.
 
 ---
 
@@ -447,9 +541,9 @@ The 25% collection shortfall persists across all fiscal years (2022–2026) with
 ### 4. HR: Attendance Does Not Equal Productivity
 
 - Attendance Rate: **83.53%** — acceptable compliance
-- Work Quality Score: **81.70%** — below compliance rate
-- Penalties (1.70K) **exceed** Bonuses (1.55K) — punitive culture, no performance upside
-- Top performers (score 50 and 44) are not currently assigned to high-impact collection roles
+- Work Quality Score: **81.70%** — below the attendance rate, indicating effort does not translate to output
+- Penalties (1.70K EGP) **exceed** Bonuses (1.55K EGP) — punitive-dominant culture with no performance upside
+- Top performers (scores 50 and 44) are not currently assigned to high-impact collection roles
 
 ---
 
@@ -480,11 +574,9 @@ The 25% collection shortfall persists across all fiscal years (2022–2026) with
 -- Run the schema file in SSMS
 -- File: sql/Commercial_Mall_Schema_Setup.sql
 
-USE master;
-GO
 -- The script will:
 -- 1. Create the MallManagementSystem database
--- 2. Create all 15 tables with constraints
+-- 2. Create all 15 tables with full constraint definitions
 -- 3. Generate Dim_Date (2020–2030)
 ```
 
@@ -495,8 +587,8 @@ GO
 -- File: sql/Analytics_Layer_And_Views.sql
 
 -- This will:
--- 1. Execute all 7 analysis queries
--- 2. Create all 7 reusable views
+-- 1. Execute all 7 business analysis queries
+-- 2. Create all 7 reusable SQL views
 ```
 
 ### Step 3 — Open the Power BI Report
@@ -512,11 +604,13 @@ GO
 
 ### Why Galaxy Schema?
 
-A single star schema would require merging `Fact_Invoices`, `Fact_Collections`, `Fact_Expenses`, `Fact_Violations`, and `Fact_Evaluations` into one table — which would destroy grain integrity and produce incorrect aggregations. Each fact table operates at a different grain and serves a different analytical purpose. The Galaxy Schema preserves this separation while enabling cross-domain analysis through shared dimension keys.
+The business domain contains 7 independent operational processes — each with a distinct grain and business logic. Forcing them into a single star schema fact table would destroy grain integrity and produce incorrect aggregations. Snowflake schema is irrelevant here because the challenge is not dimension normalization but the presence of multiple independent business processes sharing a common dimensional vocabulary.
+
+The Galaxy Schema preserves each fact table's grain while enabling cross-domain analysis through shared dimension keys — it is the only modeling approach that correctly reflects this domain.
 
 ### Why Views Instead of Direct Queries?
 
-The 7 SQL views act as a **semantic layer** between raw tables and Power BI. Benefits:
+The 7 SQL views act as a **semantic layer** between raw tables and Power BI:
 - Encapsulate business logic in one place
 - Simplify Power Query imports
 - Enable schema changes without breaking reports
@@ -524,17 +618,22 @@ The 7 SQL views act as a **semantic layer** between raw tables and Power BI. Ben
 
 ### Why Explicit DAX Measures?
 
-All KPIs are defined as explicit measures (not implicit) collected in a single `All_Measures` table. This enforces a clean separation between data and calculation, improves performance through VertiPaq optimization, and makes the model maintainable and self-documenting.
+All KPIs are defined as explicit measures collected in a single `All_Measures` table. This enforces a clean separation between data and calculation, improves performance through VertiPaq optimization, and makes the model self-documenting and maintainable by any analyst who opens the file.
 
 ---
 
 ## 👤 Author
 
-**Mahmoud Hamdi**
+**Mahmoud Hamdi** — Data Analyst
 
-Data Analyst
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=flat&logo=linkedin)](https://www.linkedin.com/in/mahmoud-hamdi-analyst) [![Email](https://img.shields.io/badge/Email-Contact-EA4335?style=flat&logo=gmail)](mailto:mahmoudhamdiwm@gmail.com)
 
- [LinkedIn](https://www.linkedin.com/in/mahmoud-hamdi-analyst) · [Email](mailto:mahmoudhamdiwm@gmail.com)
+---
+
+## ⚠️ Data Disclaimer
+
+> All data used in this project — including tenant names, financial figures, employee records, and operational metrics — is **entirely synthetic and fictional**, generated for demonstration purposes only. It does not represent any real individuals, businesses, or financial entities. This project is a technical portfolio piece showcasing BI engineering methodology.
+
 ---
 
 ## 📄 License
