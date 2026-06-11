@@ -1,4 +1,4 @@
-# 🏢 Agamy Star Mall — End-to-End Business Intelligence System
+# 🏢 Commercial Mall — End-to-End Business Intelligence System
 
 <div align="center">
 
@@ -9,7 +9,7 @@
 [![DAX](https://img.shields.io/badge/DAX-Measures-7B2FBE?style=for-the-badge&logo=powerbi&logoColor=white)](#)
 [![Status](https://img.shields.io/badge/Status-Complete-16A34A?style=for-the-badge)](#)
 
-**A full-cycle BI project simulating a real commercial mall — from relational database design and SQL analysis to a production-grade Power BI executive dashboard.**
+**A full-cycle BI project simulating a multi-tenant commercial mall — from relational database design and SQL analysis to a production-grade Power BI executive dashboard.**
 
 [Overview](#-project-overview) · [Database Design](#-database-design) · [SQL Analysis](#-sql-analysis) · [Power BI Model](#-power-bi-data-model) · [Dashboard](#-dashboard-pages) · [Key Findings](#-key-analytical-findings) · [Setup](#-setup--usage)
 
@@ -19,7 +19,7 @@
 
 ## 📌 Project Overview
 
-This project simulates the complete data pipeline and analytical layer for **Agamy Star Mall**, a multi-tenant commercial shopping center. The goal was to build a realistic, fully integrated BI system from scratch — including database design, synthetic data population, SQL-level analysis, Power BI modeling, and an executive-grade reporting layer.
+This project simulates the complete data pipeline and analytical layer for a **multi-tenant commercial shopping center**. The goal was to build a realistic, fully integrated BI system from scratch — including database design, synthetic data population, SQL-level analysis, Power BI modeling, and an executive-grade reporting layer.
 
 The project was structured around a real business question:
 
