@@ -1,6 +1,6 @@
 --================================================================================
 -- Mall Management System | Financial & Operational Analysis
--- Author: Mahmoud Hamdy
+-- Author: Mahmoud Hamdi
 -- Purpose: Turn operational data into business insights for executive decision-making
 --================================================================================
 
@@ -37,9 +37,9 @@ GO
 SELECT 
     YEAR(expense_date) AS Expense_Year,
     MONTH(expense_date) AS Expense_Month,
-    SUM(CASE WHEN Expense_category = N'’Ì«‰… Ê≈’·«Õ' THEN amount ELSE 0 END) AS Maintenance_Expenses,
-    SUM(CASE WHEN Expense_category = N'„—«›ﬁ ⁄«„…' THEN amount ELSE 0 END) AS Utilities_Expenses,
-    SUM(CASE WHEN Expense_category = N'—Ê« » Ê ‘€Ì·' THEN amount ELSE 0 END) AS Operational_Expenses
+    SUM(CASE WHEN Expense_category = N'√ï√≠√á√§√â √¶√Ö√ï√°√á√ç' THEN amount ELSE 0 END) AS Maintenance_Expenses,
+    SUM(CASE WHEN Expense_category = N'√£√ë√á√ù√û √ö√á√£√â' THEN amount ELSE 0 END) AS Utilities_Expenses,
+    SUM(CASE WHEN Expense_category = N'√ë√¶√á√ä√à √¶√ä√î√õ√≠√°' THEN amount ELSE 0 END) AS Operational_Expenses
 FROM Expenses
 GROUP BY YEAR(expense_date), MONTH(expense_date)
 ORDER BY Expense_Year, Expense_Month;
@@ -49,9 +49,9 @@ CREATE VIEW v_Expenses_Monthly_Trend AS
 SELECT 
     YEAR(expense_date) AS Expense_Year,
     MONTH(expense_date) AS Expense_Month,
-    SUM(CASE WHEN Expense_category = N'’Ì«‰… Ê≈’·«Õ' THEN amount ELSE 0 END) AS Maintenance_Expenses,
-    SUM(CASE WHEN Expense_category = N'„—«›ﬁ ⁄«„…' THEN amount ELSE 0 END) AS Utilities_Expenses,
-    SUM(CASE WHEN Expense_category = N'—Ê« » Ê ‘€Ì·' THEN amount ELSE 0 END) AS Operational_Expenses
+    SUM(CASE WHEN Expense_category = N'√ï√≠√á√§√â √¶√Ö√ï√°√á√ç' THEN amount ELSE 0 END) AS Maintenance_Expenses,
+    SUM(CASE WHEN Expense_category = N'√£√ë√á√ù√û √ö√á√£√â' THEN amount ELSE 0 END) AS Utilities_Expenses,
+    SUM(CASE WHEN Expense_category = N'√ë√¶√á√ä√à √¶√ä√î√õ√≠√°' THEN amount ELSE 0 END) AS Operational_Expenses
 FROM Expenses
 GROUP BY YEAR(expense_date), MONTH(expense_date);
 GO
@@ -74,7 +74,7 @@ SELECT
 FROM Passages P 
 INNER JOIN Shops S ON P.Passages_ID = S.Passages_ID
 INNER JOIN Contracts C ON S.Shop_ID = C.Shop_ID
-WHERE C.End_Date >= GETDATE() AND Contract_Status = N'‰‘ÿ'
+WHERE C.End_Date >= GETDATE() AND Contract_Status = N'√§√î√ò'
 GROUP BY passages_name, Peak_Percentage
 ORDER BY Peak_Percentage DESC;
 
@@ -89,7 +89,7 @@ SELECT
 FROM Passages P 
 INNER JOIN Shops S ON P.Passages_ID = S.Passages_ID
 INNER JOIN Contracts C ON S.Shop_ID = C.Shop_ID
-WHERE C.End_Date >= GETDATE() AND Contract_Status = N'‰‘ÿ'
+WHERE C.End_Date >= GETDATE() AND Contract_Status = N'√§√î√ò'
 GROUP BY passages_name, Peak_Percentage;
 GO
 
@@ -147,7 +147,7 @@ SELECT
     MONTH(Invoice_Date) AS Invoice_Month_Number,
     COUNT(Invoice_Status) AS Overdue_invoices
 FROM Invoices
-WHERE Invoice_Status = N'€Ì— „œ›Ê⁄…'
+WHERE Invoice_Status = N'√õ√≠√ë √£√è√ù√¶√ö√â'
 GROUP BY MONTH(Invoice_Date);
 GO
 
@@ -157,7 +157,7 @@ SELECT
     MONTH(Invoice_Date) AS Invoice_Month_Number,
     COUNT(Invoice_Status) AS Overdue_invoices
 FROM Invoices
-WHERE Invoice_Status = N'€Ì— „œ›Ê⁄…'
+WHERE Invoice_Status = N'√õ√≠√ë √£√è√ù√¶√ö√â'
 GROUP BY MONTH(Invoice_Date);
 GO
 
@@ -176,7 +176,7 @@ WITH Evaluation_CTE AS (
 ),
 Sanctions_CTE AS (
     SELECT employee_id, action_type, COUNT(action_type) AS Sanctions_Count 
-    FROM EmployeeSanctions WHERE action_type = N'Œ’„ „«·Ì' GROUP BY employee_id, action_type 
+    FROM EmployeeSanctions WHERE action_type = N'√é√ï√£ √£√á√°√≠' GROUP BY employee_id, action_type 
 ),
 ShopViolations_CTE AS (
     SELECT employee_id, COUNT(violation_id) AS Count_Violation FROM ShopViolations GROUP BY employee_id
@@ -197,7 +197,7 @@ WITH Evaluation_CTE AS (
 ),
 Sanctions_CTE AS (
     SELECT employee_id, action_type, COUNT(action_type) AS Sanctions_Count 
-    FROM EmployeeSanctions WHERE action_type = N'Œ’„ „«·Ì' GROUP BY employee_id, action_type 
+    FROM EmployeeSanctions WHERE action_type = N'√é√ï√£ √£√á√°√≠' GROUP BY employee_id, action_type 
 ),
 ShopViolations_CTE AS (
     SELECT employee_id, COUNT(violation_id) AS Count_Violation FROM ShopViolations GROUP BY employee_id
