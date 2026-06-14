@@ -151,7 +151,6 @@ WHERE Invoice_Status = N'ÛíÑ ãÏÝæÚÉ'
 GROUP BY MONTH(Invoice_Date);
 GO
 
-GO
 CREATE VIEW v_Overdue_Invoices_Seasonality AS
 SELECT 
     MONTH(Invoice_Date) AS Invoice_Month_Number,
