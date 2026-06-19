@@ -1,5 +1,5 @@
 
-# 🏢 Agamy Star Mall — End-to-End Business Intelligence System
+# 🏢 Commercial Mall — End-to-End Business Intelligence System
 
 <div align="center">
 
