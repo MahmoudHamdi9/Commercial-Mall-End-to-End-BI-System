@@ -452,11 +452,11 @@ The report spans **two pages**, each targeting a distinct audience and decision 
 
 **Purpose:** Executive-level view of revenue health, collection performance, zone analysis, and tenant risk.
 
-![Financial Dashboard](./screenshots/dashboard_financial.png)
+![Financial Dashboard](.screenshots/dashboard_financial.png)
 
 *Filtered view — drill-down by zone or tenant:*
 
-![Financial Dashboard Filtered](./screenshots/dashboard_financial_filter.png)
+![Financial Dashboard Filtered](.screenshots/dashboard_financial_filter.png)
 
 #### Key Visuals
 
